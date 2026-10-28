@@ -122,8 +122,9 @@
   .empty { flex:1; color:var(--muted); font-size:13px; padding:26px; border:1px dashed var(--line2); border-radius:16px; text-align:center; }
 
   /* gallery */
-  .grid { columns:4 250px; column-gap:12px; }
-  .cell { position:relative; margin:0 0 12px; break-inside:avoid; }
+  .grid { display:flex; gap:12px; align-items:flex-start; }
+  .col { flex:1; min-width:0; }
+  .cell { position:relative; margin:0 0 12px; }
   .cell.new { animation:pop .5s var(--ease); }
   .cell.new .tile { box-shadow:0 0 0 2px var(--accent), 0 0 40px rgba(139,123,255,.35); }
   .tile { display:block; width:100%; border-radius:14px; overflow:hidden; position:relative; padding:0; transition:box-shadow 1.2s;
@@ -152,7 +153,7 @@
   .strip img { width:100%; height:100%; object-fit:cover; display:block; }
   .strip .v::after { content:"▶"; position:absolute; inset:0; display:grid; place-items:center; font-size:14px; text-shadow:0 1px 6px #000; }
   .mode.video { color:#7ee0c3; }
-  .love { position:absolute; right:8px; bottom:8px; z-index:2; width:30px; height:30px; border-radius:50%; display:grid; place-items:center; font-size:14px;
+  .love { contain:strict; position:absolute; right:8px; bottom:8px; z-index:2; width:30px; height:30px; border-radius:50%; display:grid; place-items:center; font-size:14px;
     background:rgba(10,10,12,.7); backdrop-filter:blur(8px); border:1px solid var(--line2); color:var(--muted); opacity:0; transition:opacity .15s, color .15s, transform .15s; }
   .cell:hover .love, .love.on { opacity:1; }
   .love.on { color:#ff5c8a; border-color:rgba(255,92,138,.5); }
@@ -251,6 +252,7 @@
       <a class="ic" href="/api/download-all" title="Download everything as a zip" aria-label="Download everything">↓</a>
       <button class="ic" id="logout" title="Sign out" aria-label="Sign out">⏻</button></h2>
     <div class="grid" id="grid"></div>
+    <div id="more"></div>
   </section>
 </div>
 
@@ -365,7 +367,7 @@ function fillSelect(sel, options, current, onPick) {
 function renderComposer() {
   if (!fastAvailable && mode === "fast") mode = "best";
   $("modes").hidden = !fastAvailable; $("modes").className = "opt " + mode;
-  fillSelect($("modes"), [["fast", "⚡ Fast"], ["best", "✦ Best"]], mode, (o) => { mode = o; store.set("mode", o); renderComposer(); });
+  fillSelect($("modes"), [["fast", "⚡"], ["best", "✦"]], mode, (o) => { mode = o; store.set("mode", o); renderComposer(); });
   fillSelect($("ratios"), Object.keys(SIZES.standard).map((r) => [r, { "1:1": "▢ 1:1", "4:3": "▭ 4:3", "3:4": "▯ 3:4", "16:9": "▭ 16:9", "9:16": "▯ 9:16" }[r]]), ratio,
     (o) => { ratio = o; store.set("ratio", o); renderComposer(); });
   $("sizes").hidden = mode === "fast";  // the 4-step adapter is trained at ~1 megapixel
@@ -442,9 +444,9 @@ async function mutate(call) {
 function modeTag(m, onSwitch) {
   const special = { video: "🎬 Video", extend: "⏩ Extended", edit: "✏️ Edit", upload: "⤒ Upload" }[m];
   if (special) return el("span", { class: "mode " + m, text: special });
-  const fast = m === "fast", text = fast ? "⚡ Fast" : "✦ Best";
-  if (!onSwitch) return el("span", { class: "mode " + (fast ? "fast" : "best"), text });
-  return el("button", { class: "mode switch " + (fast ? "fast" : "best"), text, title: `Click to switch to ${fast ? "Best" : "Fast"}`,
+  const fast = m === "fast", text = fast ? "⚡" : "✦", name = fast ? "Fast" : "Best";
+  if (!onSwitch) return el("span", { class: "mode " + (fast ? "fast" : "best"), text, title: name, "aria-label": name });
+  return el("button", { class: "mode switch " + (fast ? "fast" : "best"), text, "aria-label": name, title: `${name}. Click to switch to ${fast ? "Best" : "Fast"}`,
     onclick: (e) => { e.stopPropagation(); onSwitch(); } });
 }
 function switchMode(job) {
@@ -626,7 +628,7 @@ function renderFilters() {
   const tiles = items.filter((i) => !rootOf.has(i.id));
   const keys = Object.keys(FILTERS).filter((k) => k === "all" || k === filter || tiles.some((i) => matches(i, k)));
   renderGroup($("filters"), keys, filter, (b, o) => b.append(`${FILTERS[o]} ${tiles.filter((i) => matches(i, o)).length}`),
-    (o) => { filter = o; store.set("filter", o); renderGallery(); });
+    (o) => { filter = o; store.set("filter", o); shown = PAGE; renderGallery(); });
   $("sort").value = sortBy;
 }
 const tileCache = new Map();
@@ -634,7 +636,11 @@ function tileFor(item) {
   const vids = videosOf(item.id), sig = vids.map((v) => v.id).join();
   const hit = tileCache.get(item.id);
   if (hit && hit.dataset.vids !== sig) tileCache.delete(item.id);
-  else if (hit) { const l = hit.querySelector(".love"); l.classList.toggle("on", !!item.loved); l.textContent = item.loved ? "♥" : "♡"; return hit; }
+  else if (hit) {  // touch the DOM only on a real change: any text write re-lays out the whole column grid
+    const l = hit.querySelector(".love"), glyph = item.loved ? "♥" : "♡";
+    if (l.textContent !== glyph) { l.classList.toggle("on", !!item.loved); l.textContent = glyph; }
+    return hit;
+  }
   const p = item.params, video = !!item.video, clip = video ? item : vids[0];
   const img = el("img", { src: thumbUrl(item, item.images[0]), alt: p.prompt || "", loading: "lazy", decoding: "async", width: p.width || 1024, height: p.height || 1024 });
   const t = el("button", { class: "tile", title: p.prompt || "", onclick: () => openLb(item.id) }, img, clip ? el("div", { class: "play", "data-n": vids.length > 1 ? String(vids.length) : "" }) : null,
@@ -664,15 +670,42 @@ function renderGallery() {
   $("galleryCount").textContent = [nImg ? `${nImg} photo${nImg > 1 ? "s" : ""}` : "", nVid ? `${nVid} video${nVid > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
   const g = $("grid");
   if (!list.length) { g.replaceChildren(el("div", { class: "empty", text: items.length ? "No images match this filter." : "Finished images will appear here." })); return; }
-  const want = list.map(tileFor);
-  want.forEach((n, i) => { if (g.children[i] !== n) g.insertBefore(n, g.children[i] || null); });
-  while (g.children.length > want.length) g.lastChild.remove();
-  for (const id of tileCache.keys()) if (!items.some((i) => i.id === id)) tileCache.delete(id);
-  knownItems = new Set(items.map((i) => i.id));
+  // Masonry: each tile goes into the currently shortest column, so the newest items run across the top row and
+  // adding a page only extends the bottom. Heights come from the stored size, so no layout is needed to place them.
+  // Only the first `shown` tiles are in the page; laying out hundreds of image tiles is what made it slow.
+  const n = colCount();
+  const cols = Array.from({ length: n }, () => []), heights = new Array(n).fill(0);
+  for (const item of list.slice(0, shown)) {
+    const c = heights.indexOf(Math.min(...heights));
+    cols[c].push(tileFor(item)); heights[c] += (item.params.height || 1024) / (item.params.width || 1024);
+  }
+  if (g.querySelector(".empty")) g.replaceChildren();
+  while (g.children.length < n) g.append(el("div", { class: "col" }));
+  while (g.children.length > n) g.lastChild.remove();
+  cols.forEach((want, c) => {
+    const col = g.children[c];
+    want.forEach((node, i) => { if (col.children[i] !== node) col.insertBefore(node, col.children[i] || null); });
+    while (col.children.length > want.length) col.lastChild.remove();
+  });
+  renderGallery.cols = n;
+  const ids = new Set(items.map((i) => i.id));
+  for (const id of tileCache.keys()) if (!ids.has(id)) tileCache.delete(id);
+  knownItems = ids;
+  if (shown < list.length) requestAnimationFrame(fillScreen);
 }
+// Infinite scroll: add a page of tiles whenever the end of the grid comes within ~2 screens.
+const PAGE = 60;
+let shown = PAGE;
+function fillScreen() {
+  if (shown >= visibleItems().length || $("more").getBoundingClientRect().top > innerHeight * 3) return;
+  shown += PAGE; renderGallery();
+}
+const colCount = () => Math.max(1, Math.min(4, Math.floor(($("grid").clientWidth + 12) / 262)));  // up to 4 columns, each at least 250px
+new ResizeObserver(() => { if (renderGallery.cols && colCount() !== renderGallery.cols) renderGallery(); }).observe($("grid"));
+addEventListener("scroll", () => { if (!fillScreen.queued) { fillScreen.queued = true; requestAnimationFrame(() => { fillScreen.queued = false; fillScreen(); }); } }, { passive: true });
 function toggleLove(id) {
   const item = items.find((i) => i.id === id); if (!item) return;
-  item.loved = !item.loved; renderGallery(); if (lbId) renderLb();
+  item.loved = !item.loved; refreshGallery.sig = null; renderGallery(); if (lbId) renderLb();
   api(`/api/gallery/${id}/love`, { loved: item.loved }).catch((e) => { item.loved = !item.loved; renderGallery(); fail(e); });
 }
 function sourceJob(item, kind, prompt = "") {
@@ -704,16 +737,16 @@ async function uploadFiles(files) {
   await refreshGallery();
   if (last) { toast(list.length > 1 ? `${list.length} photos added.` : "Photo added. Describe a change or make a video."); if (list.length === 1) { openLb(last); $("lbActText").focus(); } }
 }
+const deleted = new Set();
 function removeItem(id) {
   const i = items.findIndex((x) => x.id === id), item = items[i];
   if (!item) return;
-  const inGroup = lbId && lbId !== id && rootOf.get(id) === lbId;  // a video inside the open photo: stay on that photo
-  if (lbId === id) { const vis = visibleItems(), k = vis.indexOf(item), next = vis[k + 1] || vis[k - 1]; next ? showLb(next.id) : closeLb(); }
+  deleted.add(id); refreshGallery.sig = null;  // local change: the next refresh must redraw
+  if (lbId) closeLb();  // deleting from the viewer returns to the gallery
   items = items.filter((x) => x.id !== id); renderGallery();
-  if (inGroup) { lbView = null; lbIndex = visibleItems().findIndex((x) => x.id === lbId); renderLb(); }
   api(`/api/gallery/${id}/delete`, {}).then(() => toast(item.video ? "Video deleted." : "Image deleted.", { action: { label: "Undo", run: () =>
-    api(`/api/gallery/${id}/restore`, {}).then(refreshGallery, fail) } }),
-    (e) => { fail(e); refreshGallery(); });
+    api(`/api/gallery/${id}/restore`, {}).then(() => { deleted.delete(id); return refreshGallery(); }, fail) } }),
+    (e) => { deleted.delete(id); fail(e); refreshGallery(); });
 }
 function reuse(p) {
   $("prompt").value = p.prompt || "";
@@ -769,7 +802,10 @@ function lbStep(d) { const vis = visibleItems(), n = vis[lbIndex + d]; if (n) sh
 // ---------- polling: fast while something is generating, relaxed when idle ----------
 async function refreshGallery() {
   try {
-    items = (await api("/api/gallery")).items; renderGallery(); renderQueue(); renderComposer();
+    // A refresh that started before a delete would bring the item back; drop anything deleted here.
+    const fresh = (await api("/api/gallery")).items.filter((i) => !deleted.has(i.id)), sig = JSON.stringify(fresh);
+    if (sig === refreshGallery.sig) return;  // nothing changed: skip the redraw
+    refreshGallery.sig = sig; items = fresh; renderGallery(); renderQueue(); renderComposer();
     if (lbId) { lbIndex = visibleItems().findIndex((i) => i.id === lbId); renderLb(); }
   } catch {}
 }
@@ -837,7 +873,7 @@ addEventListener("dragenter", (e) => { if (hasFiles(e)) { dragDepth++; $("drop")
 addEventListener("dragleave", (e) => { if (hasFiles(e) && --dragDepth <= 0) { dragDepth = 0; $("drop").classList.remove("on"); } });
 addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
 addEventListener("drop", (e) => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth = 0; $("drop").classList.remove("on"); uploadFiles(e.dataTransfer.files); });
-$("sort").onchange = () => { sortBy = $("sort").value; store.set("sort", sortBy); renderGallery(); };
+$("sort").onchange = () => { sortBy = $("sort").value; store.set("sort", sortBy); shown = PAGE; renderGallery(); };
 $("lbStage").addEventListener("click", (e) => { if (e.target === $("lbStage")) closeLb(); });
 document.addEventListener("keydown", (e) => {
   const typing = /^(TEXTAREA|INPUT)$/.test(document.activeElement?.tagName);

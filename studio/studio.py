@@ -6,6 +6,7 @@ Login is a single password from $MOSS_PASS; the app refuses to start without it.
 """
 
 import argparse
+import gzip
 import hashlib
 import hmac
 import json
@@ -26,7 +27,7 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.background import BackgroundTask
 
 log = logging.getLogger("studio")
@@ -45,7 +46,7 @@ UPLOAD_MAX = 30 * 1024 * 1024
 # ---------- Wan2GP jobs: photo -> video, extend a video, edit a photo ----------
 # Run headless (`wgp.py --process settings.json`) as a subprocess, so its memory is freed afterwards.
 
-WAN_VIDEO_MODEL = "ti2v_2_2_fastwan"  # Wan 2.2 5B distilled to 3 steps; 720p, 121 frames (~5 s at 24 fps)
+WAN_VIDEO_MODEL = "i2v_2_2_Enhanced_Lightning_v2"  # Wan 2.2 I2V 14B (high + low noise experts) with Lightning baked in: 4 steps, 81 frames (~5 s at 16 fps)
 WAN_EDIT_MODEL = "moss_image_edit_hq"  # MOSS-Image SFT + community Edit HQ v4 adapter: localized, detail-preserving edits
 WGP_STEP_RE = re.compile(r"(\d+)/(\d+) \[")
 REALISM = "Realistic live-action footage, natural lifelike motion, steady camera. "
@@ -952,8 +953,13 @@ def create_app(queue, gallery, password):
         return {"jobs": queue.snapshot(), "fast": fast_available}
 
     @app.get("/api/gallery")
-    def gallery_list():
-        return {"items": gallery.items()}
+    def gallery_list(request: Request):
+        # ~350 bytes per item; gzip shrinks it several-fold for the trip through the RunPod proxy.
+        body = json.dumps({"items": gallery.items()}, separators=(",", ":")).encode()
+        if "gzip" not in request.headers.get("accept-encoding", ""):
+            return Response(body, media_type="application/json")
+        return Response(gzip.compress(body, 5), media_type="application/json",
+                        headers={"Content-Encoding": "gzip", "Vary": "Accept-Encoding"})
 
     @app.post("/api/jobs")
     async def add_job(request: Request):
