@@ -1,0 +1,8 @@
+# Per-user state: pod ID and studio password. Never commit.
+.moss-pod
+.env
+__pycache__/
+*.pyc
+.DS_Store
+outputs/
+*.db

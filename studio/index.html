@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MOSS Studio</title>
+<style>
+  :root {
+    --bg:#08080a; --panel:rgba(255,255,255,.035); --panel2:rgba(255,255,255,.07); --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.15);
+    --text:#f4f4f6; --muted:#8d8d97; --dim:#5c5c66; --grad:linear-gradient(135deg,#8b7bff 0%,#5ac8ff 100%); --accent:#8b7bff;
+    --fast:#ffcf5c; --best:#b9b0ff; --bad:#ff6b7a; --ease:cubic-bezier(.2,.8,.2,1);
+  }
+  html { color-scheme:dark; scrollbar-color:rgba(255,255,255,.18) transparent; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; min-height:100%; background:var(--bg); color:var(--text);
+    font:14px/1.5 "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing:antialiased; }
+  body::before { content:""; position:fixed; inset:-20% -10% auto; height:75vh; z-index:-1; pointer-events:none;
+    background:radial-gradient(40% 50% at 18% 18%, rgba(139,123,255,.20), transparent 70%), radial-gradient(35% 45% at 88% 8%, rgba(90,200,255,.13), transparent 70%); }
+  button, input, textarea { font:inherit; color:inherit; }
+  button { cursor:pointer; border:0; background:none; -webkit-tap-highlight-color:transparent; }
+  button:not(:disabled):active { transform:scale(.96); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  [hidden] { display:none !important; }
+
+  .hbar { position:fixed; left:0; top:0; z-index:15; height:3px; width:0; background:var(--grad); transition:width .6s var(--ease), opacity .3s; }
+  .pill { display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:999px; border:1px solid var(--line);
+    background:var(--panel); font-size:13px; color:var(--muted); text-decoration:none; transition:color .15s, border-color .15s, background .15s; }
+  .pill:hover { color:var(--text); border-color:var(--line2); }
+  .pill.new { color:#0a0a12; background:var(--grad); border:0; font-weight:600; }
+  .fab { position:fixed; right:24px; bottom:24px; z-index:12; padding:11px 18px; font-size:14px; box-shadow:0 10px 30px rgba(139,123,255,.45); }
+  .attach { width:38px; height:38px; border-radius:12px; display:grid; place-items:center; font-size:16px; border:1px solid var(--line); color:var(--muted); transition:.15s; }
+  .attach:hover { border-color:var(--line2); background:var(--panel2); }
+  h2 .ic { width:30px; height:30px; text-decoration:none; color:var(--muted); background:var(--panel); }
+  h2 .ic:hover { color:var(--text); }
+  .wrap { max-width:1440px; margin:0 auto; padding:40px 28px 90px; }
+  @media (max-width:700px) { .wrap { padding:18px 16px 60px; } .fab { right:16px; bottom:16px; } }
+
+  /* composer */
+  .composer { position:relative; background:var(--panel); border:1px solid var(--line); border-radius:24px; padding:8px; max-width:920px; margin:0 auto 44px;
+    box-shadow:0 24px 70px rgba(0,0,0,.4); transition:border-color .2s, box-shadow .2s; }
+  .composer:focus-within { border-color:rgba(139,123,255,.45); }
+  .composer.editing { border-color:var(--accent); box-shadow:0 0 0 4px rgba(139,123,255,.16), 0 24px 70px rgba(0,0,0,.4); }
+  .editbar { display:flex; align-items:center; gap:8px; margin:6px 10px 0; font-size:12px; color:var(--best); }
+  .composer textarea { display:block; width:100%; min-height:88px; max-height:45vh; resize:none; border:0; background:transparent; padding:14px 16px 8px;
+    font-size:16px; line-height:1.55; outline:none; }
+  .composer textarea::placeholder { color:var(--dim); }
+  .bar { display:flex; align-items:center; gap:8px; padding:8px; flex-wrap:wrap; }
+  .group { display:flex; gap:2px; padding:3px; border-radius:12px; background:rgba(0,0,0,.35); border:1px solid var(--line); }
+  .group button { display:flex; align-items:center; gap:6px; padding:6px 10px; border-radius:9px; color:var(--muted); font-size:13px; transition:color .15s, background .15s; }
+  .group button:hover { color:var(--text); }
+  .group button.on { background:var(--panel2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line2); }
+  #modes button.on[data-v=fast] { color:var(--fast); } #modes button.on[data-v=best] { color:var(--best); }
+  .shape { display:inline-block; border:1.5px solid currentColor; border-radius:2px; }
+  .bar .sp { flex:1; }
+  .bar { flex-wrap:nowrap; gap:6px; }
+  .opt { appearance:none; -webkit-appearance:none; padding:6px 24px 6px 10px; border-radius:10px; border:1px solid var(--line); font-size:12.5px; color:var(--muted);
+    background:rgba(0,0,0,.3) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238d8d97' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 9px center;
+    cursor:pointer; transition:color .15s, border-color .15s; }
+  .opt:hover, .opt:focus-visible { color:var(--text); border-color:var(--line2); }
+  #modes.fast { color:var(--fast); } #modes.best { color:var(--best); }
+  @media (max-width:640px) { .bar { flex-wrap:wrap; } .meta { display:none; } }
+  .meta { color:var(--muted); font-size:12px; padding:0 4px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .ghost { padding:9px 14px; border-radius:12px; color:var(--muted); border:1px solid var(--line2); }
+  .ghost:hover { color:var(--text); background:var(--panel2); }
+  .go { position:relative; display:flex; align-items:center; gap:8px; padding:10px 18px; border-radius:13px; background:var(--grad); color:#0a0a12; font-weight:650;
+    box-shadow:0 6px 24px rgba(139,123,255,.35); transition:transform .12s, box-shadow .2s, filter .2s; min-width:132px; justify-content:center; }
+  .go:hover { box-shadow:0 8px 30px rgba(139,123,255,.5); filter:brightness(1.05); }
+  .go.ok { filter:saturate(.6) brightness(1.15); }
+  .go kbd { font:11px/1 inherit; padding:3px 5px; border-radius:5px; background:rgba(0,0,0,.16); }
+
+  /* section headers */
+  h2 { display:flex; align-items:center; gap:10px; font-size:13px; font-weight:500; color:var(--muted); margin:0 0 14px; font-variant-numeric:tabular-nums; }
+  h2 b { color:var(--text); font-weight:650; font-size:16px; }
+  h2 .sp { flex:1; }
+  .chips { display:flex; gap:4px; }
+  .chips button { padding:5px 11px; border-radius:999px; font-size:12.5px; color:var(--muted); border:1px solid transparent; transition:.15s; }
+  .chips button:hover { color:var(--text); }
+  .chips button.on { color:var(--text); border-color:var(--line2); background:var(--panel2); }
+
+  /* queue */
+  .queue { display:flex; gap:12px; overflow-x:auto; padding:2px 2px 10px; margin:0 -2px 36px; scrollbar-width:thin; scroll-behavior:smooth; }
+  .job { position:relative; flex:0 0 196px; border-radius:16px; background:var(--panel); border:1px solid var(--line); overflow:hidden;
+    transition:border-color .2s, opacity .25s, box-shadow .2s; }
+  .job:hover { border-color:var(--line2); }
+  .job.gone { opacity:.35; pointer-events:none; }
+  .job.editing { border-color:var(--accent); box-shadow:0 0 0 3px rgba(139,123,255,.18); }
+  .job .pic { aspect-ratio:1; background:rgba(255,255,255,.02); display:grid; place-items:center; position:relative; overflow:hidden; }
+  .job .pic img { width:100%; height:100%; object-fit:cover; cursor:zoom-in; animation:fade .4s; }
+  .job .pic img.src { position:absolute; inset:0; opacity:.5; filter:saturate(.8); cursor:default; }
+  .job .pic img.src ~ .ring, .job .pic img.src ~ .pct, .job .pic img.src ~ .wait { z-index:1; text-shadow:0 1px 8px rgba(0,0,0,.8); }
+  .job .pic .wait { position:relative; }
+  .job.running .pic::before { content:""; position:absolute; inset:0;
+    background:linear-gradient(110deg, transparent 30%, rgba(139,123,255,.14) 50%, transparent 70%); background-size:200% 100%; animation:shimmer 1.8s infinite linear; }
+  .ring { --p:0; position:relative; width:84px; height:84px; border-radius:50%; display:grid; place-items:center;
+    background:conic-gradient(#8b7bff calc(var(--p) * 1%), #5ac8ff calc(var(--p) * 1%), rgba(255,255,255,.07) 0); transition:--p .6s;
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); mask:radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); }
+  .pct { position:absolute; font-size:20px; font-weight:650; font-variant-numeric:tabular-nums; }
+  .job .wait { color:var(--dim); font-size:30px; font-weight:650; }
+  .job .body { padding:10px 12px 12px; }
+  .job .p { font-size:13px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:39px; }
+  .job .sub { font-size:12px; color:var(--muted); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
+  .job .sub.bad { color:var(--bad); white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .job.queued { cursor:grab; user-select:none; }
+  .job.dragging { opacity:.3; }
+  .job.drop-before { box-shadow:-4px 0 0 var(--accent); } .job.drop-after { box-shadow:4px 0 0 var(--accent); }
+  .acts { position:absolute; top:8px; right:8px; display:flex; gap:4px; opacity:0; transform:translateY(-3px); transition:opacity .15s, transform .15s; z-index:2; }
+  .job:hover .acts, .job:focus-within .acts, .cell:hover .acts, .cell:focus-within .acts { opacity:1; transform:none; }
+  @media (hover:none) { .acts { opacity:1; transform:none; } }
+  .ic { width:28px; height:28px; border-radius:9px; display:grid; place-items:center; font-size:13px; background:rgba(10,10,12,.78);
+    backdrop-filter:blur(8px); border:1px solid var(--line2); transition:background .15s, color .15s; }
+  .ic:hover { background:rgba(46,46,56,.95); }
+  .ic:disabled { opacity:.3; cursor:default; }
+  .ic.danger:hover { background:var(--bad); color:#fff; border-color:transparent; }
+  .tag { position:absolute; top:8px; left:8px; font-size:11px; padding:3px 8px; border-radius:999px; background:rgba(10,10,12,.78);
+    backdrop-filter:blur(8px); border:1px solid var(--line2); color:var(--muted); z-index:1; }
+  .tag.running { color:var(--best); } .tag.failed { color:var(--bad); }
+  .mode { position:absolute; bottom:8px; left:8px; z-index:1; font-size:11px; padding:3px 9px; border-radius:999px; background:rgba(10,10,12,.78);
+    backdrop-filter:blur(8px); border:1px solid var(--line2); font-weight:550; }
+  .mode.fast { color:var(--fast); } .mode.best { color:var(--best); }
+  .mode.switch { cursor:pointer; transition:border-color .15s; } .mode.switch::after { content:" ⇄"; opacity:.55; }
+  .mode.switch:hover { border-color:currentColor; }
+  .empty { flex:1; color:var(--muted); font-size:13px; padding:26px; border:1px dashed var(--line2); border-radius:16px; text-align:center; }
+
+  /* gallery */
+  .grid { columns:4 250px; column-gap:12px; }
+  .cell { position:relative; margin:0 0 12px; break-inside:avoid; }
+  .cell.new { animation:pop .5s var(--ease); }
+  .cell.new .tile { box-shadow:0 0 0 2px var(--accent), 0 0 40px rgba(139,123,255,.35); }
+  .tile { display:block; width:100%; border-radius:14px; overflow:hidden; position:relative; padding:0; transition:box-shadow 1.2s;
+    background:linear-gradient(110deg, rgba(255,255,255,.03) 30%, rgba(255,255,255,.07) 50%, rgba(255,255,255,.03) 70%); background-size:200% 100%; animation:shimmer 1.6s infinite linear; }
+  .tile.loaded { animation:none; background:rgba(255,255,255,.03); }
+  .tile img { display:block; width:100%; height:auto; opacity:0; transition:opacity .35s, transform .45s var(--ease), filter .3s; }
+  .tile.loaded img { opacity:1; }
+  .tile:hover img { transform:scale(1.03); filter:brightness(.82); }
+  .tile .mode { top:8px; bottom:auto; }
+  .tile .cap { position:absolute; inset:auto 0 0 0; padding:40px 14px 12px; font-size:12.5px; text-align:left; color:#fff;
+    background:linear-gradient(transparent, rgba(0,0,0,.82)); opacity:0; transform:translateY(6px); transition:.25s var(--ease);
+    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .tile:hover .cap, .tile:focus-visible .cap { opacity:1; transform:none; }
+
+  .tile .play { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; }
+  .tile .play::before { content:"▶"; width:46px; height:46px; border-radius:50%; display:grid; place-items:center; padding-left:3px; font-size:16px;
+    background:rgba(10,10,12,.6); backdrop-filter:blur(8px); border:1px solid var(--line2); transition:opacity .2s; }
+  .tile video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .tile:hover .play::before { opacity:0; }
+  .tile .play[data-n]:not([data-n=""])::after { content:attr(data-n) " videos"; position:absolute; right:8px; top:8px; font-size:11px; padding:3px 8px;
+    border-radius:999px; background:rgba(10,10,12,.78); border:1px solid var(--line2); color:#7ee0c3; }
+  .strip { position:absolute; left:50%; bottom:18px; transform:translateX(-50%); display:flex; gap:8px; padding:6px; border-radius:14px;
+    background:rgba(10,10,12,.7); backdrop-filter:blur(10px); border:1px solid var(--line2); max-width:calc(100% - 140px); overflow-x:auto; }
+  .strip button { position:relative; flex:0 0 auto; width:58px; height:58px; border-radius:9px; overflow:hidden; border:2px solid transparent; opacity:.6; transition:.15s; }
+  .strip button.on { border-color:var(--accent); opacity:1; } .strip button:hover { opacity:1; }
+  .strip img { width:100%; height:100%; object-fit:cover; display:block; }
+  .strip .v::after { content:"▶"; position:absolute; inset:0; display:grid; place-items:center; font-size:14px; text-shadow:0 1px 6px #000; }
+  .mode.video { color:#7ee0c3; }
+  .love { position:absolute; right:8px; bottom:8px; z-index:2; width:30px; height:30px; border-radius:50%; display:grid; place-items:center; font-size:14px;
+    background:rgba(10,10,12,.7); backdrop-filter:blur(8px); border:1px solid var(--line2); color:var(--muted); opacity:0; transition:opacity .15s, color .15s, transform .15s; }
+  .cell:hover .love, .love.on { opacity:1; }
+  .love.on { color:#ff5c8a; border-color:rgba(255,92,138,.5); }
+  .love:hover { transform:scale(1.1); }
+  @media (hover:none) { .love { opacity:1; } }
+  .lbvid { max-width:100%; max-height:calc(100vh - 56px); border-radius:12px; box-shadow:0 30px 90px rgba(0,0,0,.6); background:#000; }
+  .btn.loved { color:#ff5c8a; border-color:rgba(255,92,138,.45); }
+  .act { display:flex; flex-direction:column; gap:8px; padding:10px; border-radius:14px; background:rgba(0,0,0,.28); border:1px solid var(--line); }
+  .act .row { display:flex; flex-wrap:wrap; gap:6px; } .act .row .btn { flex:1 1 auto; padding:9px 10px; }
+  .mode.edit { color:#ffa36b; } .mode.upload { color:#9fd3ff; } .mode.extend { color:#7ee0c3; }
+  .drop { position:fixed; inset:0; z-index:40; display:none; place-items:center; background:rgba(8,8,10,.8); backdrop-filter:blur(8px);
+    border:2px dashed var(--accent); font-size:20px; font-weight:600; }
+  .drop.on { display:grid; }
+  .motion { display:flex; gap:8px; }
+  .motion input, .act input { flex:1; min-width:0; padding:10px 12px; border-radius:12px; border:1px solid var(--line2); background:rgba(0,0,0,.35); outline:none; font-size:13px; }
+  .motion input:focus, .act input:focus { border-color:rgba(139,123,255,.6); }
+  select.sort { padding:5px 10px; border-radius:999px; border:1px solid var(--line2); background:var(--panel); font-size:12.5px; color:var(--text); }
+
+  /* lightbox */
+  .lb { position:fixed; inset:0; z-index:20; display:grid; grid-template-columns:1fr 360px; background:rgba(5,5,7,.95); backdrop-filter:blur(22px);
+    opacity:0; visibility:hidden; transition:opacity .2s, visibility .2s; }
+  .lb.open { opacity:1; visibility:visible; }
+  @media (max-width:900px) { .lb { grid-template-columns:1fr; grid-template-rows:1fr auto; } .lb .info { max-height:45vh; border-left:0; border-top:1px solid var(--line); } }
+  .lb .stage { position:relative; display:grid; place-items:center; padding:28px; min-height:0; }
+  .lb .stage img { max-width:100%; max-height:calc(100vh - 56px); object-fit:contain; border-radius:12px; box-shadow:0 30px 90px rgba(0,0,0,.6);
+    transform:scale(.97); transition:transform .3s var(--ease), filter .3s; }
+  .lb.open .stage img { transform:none; }
+  .lb .stage img.soft { filter:blur(6px); }
+  .lb .nav { position:absolute; top:50%; transform:translateY(-50%); width:46px; height:46px; border-radius:50%; font-size:20px;
+    background:rgba(255,255,255,.06); border:1px solid var(--line2); transition:background .15s; }
+  .lb .nav:hover { background:rgba(255,255,255,.13); } .lb .nav:disabled { opacity:.15; }
+  .lb .prev { left:20px; } .lb .next { right:20px; }
+  .lb .info { position:relative; border-left:1px solid var(--line); padding:26px 24px; overflow:auto; display:flex; flex-direction:column; gap:18px; }
+  .lb .ptext { white-space:pre-wrap; word-break:break-word; font-size:14px; line-height:1.6; max-height:40vh; overflow:auto; padding-right:30px; }
+  .lb .kv { display:grid; grid-template-columns:auto 1fr; gap:6px 16px; font-size:13px; margin:0; }
+  .lb .kv dt { color:var(--muted); } .lb .kv dd { margin:0; font-variant-numeric:tabular-nums; }
+  .lb .btns { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:auto; }
+  .lb .btns .wide { grid-column:1 / -1; }
+  .keys { font-size:11.5px; color:var(--dim); text-align:center; }
+  .keys kbd { font:inherit; padding:1px 5px; border:1px solid var(--line2); border-radius:4px; }
+  .btn { padding:11px 12px; border-radius:12px; border:1px solid var(--line2); background:var(--panel); text-align:center; text-decoration:none; color:var(--text);
+    font-weight:500; font-size:13.5px; transition:background .15s; }
+  .btn:hover { background:var(--panel2); }
+  .btn.main { background:var(--grad); border:0; color:#0a0a12; font-weight:650; }
+  .btn.danger { color:var(--bad); } .btn.danger:hover { background:rgba(255,107,122,.12); }
+  .lb .close { position:absolute; top:20px; right:20px; }
+
+  .credits { text-align:center; font-size:12px; color:var(--dim); padding:0 16px 32px; }
+  .credits a { color:var(--muted); text-decoration:none; } .credits a:hover { color:var(--text); }
+
+  /* toast */
+  .toast { position:fixed; bottom:24px; left:50%; transform:translate(-50%, 16px) scale(.98); display:flex; align-items:center; gap:14px;
+    background:rgba(28,28,34,.96); backdrop-filter:blur(12px); border:1px solid var(--line2); padding:10px 16px; border-radius:14px; font-size:13px;
+    box-shadow:0 14px 40px rgba(0,0,0,.45); opacity:0; transition:.28s var(--ease); pointer-events:none; z-index:30; }
+  .toast.show { opacity:1; transform:translate(-50%, 0); pointer-events:auto; }
+  .toast.bad { border-color:rgba(255,107,122,.5); }
+  .toast button { color:var(--best); font-weight:650; padding:0; }
+
+  @keyframes fade { from { opacity:0; } to { opacity:1; } }
+  @keyframes pop { from { opacity:0; transform:scale(.94); } to { opacity:1; transform:none; } }
+  @keyframes shimmer { from { background-position:200% 0; } to { background-position:-200% 0; } }
+  @keyframes pulse { 0% { box-shadow:0 0 0 0 rgba(139,123,255,.55); } 70% { box-shadow:0 0 0 8px rgba(139,123,255,0); } 100% { box-shadow:0 0 0 0 rgba(139,123,255,0); } }
+  @property --p { syntax:"<number>"; inherits:false; initial-value:0; }
+  @media (prefers-reduced-motion:reduce) { *, *::before { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="hbar" id="hbar"></div>
+<button class="pill new fab" id="newBtn" hidden title="New image (/)">＋ New</button>
+<input type="file" id="uploadInput" accept="image/*" multiple hidden>
+
+<div class="wrap">
+  <div class="composer" id="composer">
+    <div class="editbar" id="editbar" hidden>✎ Editing a waiting image · Esc to cancel</div>
+    <textarea id="prompt" placeholder="Describe an image…   (Enter to generate, Shift+Enter for a new line)" aria-label="Prompt"></textarea>
+    <div class="bar">
+      <select class="opt" id="modes" aria-label="Quality" title="Fast: 4 steps, about 10× quicker. Best: 50 steps, highest quality."></select>
+      <select class="opt" id="ratios" aria-label="Shape"></select>
+      <select class="opt" id="sizes" aria-label="Size"></select>
+      <select class="opt" id="counts" aria-label="How many"></select>
+      <span class="sp"></span>
+      <span class="meta" id="hint"></span>
+      <button class="ghost" id="cancelEdit" hidden>Cancel</button>
+      <button class="attach" id="uploadBtn" title="Add your own photos to edit or animate (or drop them anywhere)" aria-label="Upload photos">📎</button>
+      <button class="go" id="go"><span id="goText">Generate</span> <kbd>↵</kbd></button>
+    </div>
+  </div>
+
+  <section>
+    <h2><b>Queue</b><span id="queueSummary"></span></h2>
+    <div class="queue" id="queue"></div>
+  </section>
+  <section>
+    <h2><b>Gallery</b><span id="galleryCount"></span><span class="sp"></span><div class="chips" id="filters"></div>
+      <select class="sort" id="sort" aria-label="Sort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="loved">Loved first</option></select>
+      <a class="ic" href="/api/download-all" title="Download everything as a zip" aria-label="Download everything">↓</a>
+      <button class="ic" id="logout" title="Sign out" aria-label="Sign out">⏻</button></h2>
+    <div class="grid" id="grid"></div>
+  </section>
+</div>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Image viewer">
+  <div class="stage" id="lbStage">
+    <img id="lbImg" alt="">
+    <video id="lbVid" class="lbvid" controls loop playsinline hidden></video>
+    <div class="strip" id="lbStrip" hidden></div>
+    <button class="nav prev" id="lbPrev" aria-label="Previous">‹</button>
+    <button class="nav next" id="lbNext" aria-label="Next">›</button>
+  </div>
+  <div class="info">
+    <button class="ic close" id="lbClose" aria-label="Close">✕</button>
+    <div class="ptext" id="lbPrompt"></div>
+    <dl class="kv" id="lbKv"></dl>
+    <div class="btns">
+      <a class="btn main" id="lbDownload" download>Download</a>
+      <button class="btn" id="lbLove">♡ Love</button>
+      <div class="act wide" id="lbAct">
+        <input id="lbActText" aria-label="Describe a change or motion">
+        <div class="row">
+          <button class="btn" id="lbEdit" title="Change this photo as described (E)">✏️ Edit photo</button>
+          <button class="btn" id="lbVideo" title="Animate this photo (V)">🎬 Make video</button>
+          <button class="btn" id="lbExtend" title="Continue this video for ~5 more seconds (X)">⏩ Extend video</button>
+          <button class="btn" id="lbMore" title="Queue 4 new versions of this prompt (M)">✨ More like this</button>
+        </div>
+      </div>
+      <button class="btn wide" id="lbFinal">✦ Remake in Best quality</button>
+      <button class="btn" id="lbReuse">Use prompt</button>
+      <button class="btn" id="lbCopy">Copy prompt</button>
+      <button class="btn danger wide" id="lbDelete">Delete</button>
+      <div class="keys wide"><kbd>←</kbd> <kbd>→</kbd> browse · <kbd>L</kbd> love · <kbd>E</kbd> edit · <kbd>V</kbd> video · <kbd>X</kbd> extend · <kbd>M</kbd> more · <kbd>Del</kbd> delete · <kbd>Esc</kbd> close</div>
+    </div>
+  </div>
+</div>
+<footer class="credits">Photos by <a href="https://github.com/OpenMOSS/MOSS-Image" target="_blank" rel="noopener">MOSS-Image</a> ·
+  videos and edits by <a href="https://github.com/deepbeepmeep/Wan2GP" target="_blank" rel="noopener">WanGP</a> ·
+  <a href="https://github.com/KristiyanTs/moss-studio" target="_blank" rel="noopener">MOSS Studio</a></footer>
+<div class="toast" id="toast" role="status"></div>
+<div class="drop" id="drop">Drop photos to add them to the gallery</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const SIZES = {
+  standard: { "1:1": [1024, 1024], "4:3": [1184, 880], "3:4": [880, 1184], "16:9": [1360, 768], "9:16": [768, 1360] },
+  large:    { "1:1": [1456, 1456], "4:3": [1664, 1248], "3:4": [1248, 1664], "16:9": [1920, 1088], "9:16": [1088, 1920] },
+};
+const COUNTS = [1, 2, 4, 8];
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("studio." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("studio." + k, JSON.stringify(v)); } catch {} },
+};
+let mode = store.get("mode", "fast"), fastAvailable = true, filter = store.get("filter", "all"), sortBy = store.get("sort", "new");
+let ratio = store.get("ratio", "1:1"), size = store.get("size", "standard"), count = store.get("count", 1);
+if (!SIZES[size] || !SIZES[size][ratio]) { ratio = "1:1"; size = "standard"; }
+if (!COUNTS.includes(count)) count = 1;
+let jobs = [], items = [], lbIndex = -1, lbId = null, knownDone = null, knownItems = null;
+
+function el(tag, props = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") n.className = v; else if (k === "text") n.textContent = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v); else n.setAttribute(k, v);
+  }
+  for (const kid of kids) if (kid != null) n.append(kid);
+  return n;
+}
+function toast(text, opts = {}) {
+  const t = $("toast"); t.replaceChildren(el("span", { text }));
+  t.classList.toggle("bad", !!opts.bad);
+  if (opts.action) t.append(el("button", { text: opts.action.label, onclick: () => { t.classList.remove("show"); opts.action.run(); } }));
+  t.classList.add("show"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("show"), opts.action ? 6000 : 2200);
+}
+const fail = (e) => toast(e.message, { bad: true });
+async function api(path, body) {
+  const opts = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "X-Studio": "1" }, body: JSON.stringify(body) };
+  const r = await fetch(path, opts);
+  if (r.status === 401) { location.replace("/login"); throw new Error("Signed out"); }
+  const d = await r.json().catch(() => ({}));
+  if ([502, 503, 504].includes(r.status)) throw new Error("The server is restarting. Try again in a minute.");
+  if (!r.ok) throw new Error(typeof d.detail === "string" ? d.detail : "Something went wrong (" + r.status + ").");
+  return d;
+}
+function fmtDur(s) { if (s == null || !isFinite(s)) return ""; s = Math.max(0, Math.round(s)); return s < 60 ? s + "s" : Math.floor(s / 60) + "m " + String(s % 60).padStart(2, "0") + "s"; }
+function fileName(item, name) {
+  const d = new Date(item.created * 1000), pad = (x) => String(x).padStart(2, "0");
+  return `moss-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}-${name}`;
+}
+const fileUrl = (item, name) => `/files/${item.id}/${name}`;
+const thumbUrl = (item, name) => `/thumbs/${item.id}/${name}`;
+const isFast = (p) => p.mode === "fast";
+const SOURCE_KINDS = ["video", "extend", "edit"];
+const isSourceJob = (p) => SOURCE_KINDS.includes(p.kind);
+const isGenerated = (p) => !p.kind;  // made from a prompt (not an upload, edit or video)
+const kindOf = (item) => item.video ? "video" : item.params.kind === "edit" ? "edit" : item.params.kind === "upload" ? "upload" : isFast(item.params) ? "fast" : "best";
+const tagOf = (item) => item.video ? (item.params.kind === "extend" ? "extend" : "video") : item.params.kind === "edit" ? "edit" : item.params.kind === "upload" ? "upload" : item.params.mode;
+const sourceThumb = (p) => { const [f, n] = (p.source || p.origin).split("/"); return `/thumbs/${f}/${n.endsWith(".mp4") ? "01.png" : n}`; };
+
+// ---------- composer ----------
+function shapeIcon(r) { const [w, h] = r.split(":").map(Number), s = 12 / Math.max(w, h); return el("span", { class: "shape", style: `width:${Math.round(w * s)}px;height:${Math.round(h * s)}px` }); }
+function renderGroup(container, options, current, label, onPick) {
+  container.replaceChildren(...options.map((o) => {
+    const b = el("button", { type: "button", role: "radio", "data-v": String(o), "aria-checked": String(o === current), class: o === current ? "on" : "", onclick: () => onPick(o) });
+    label(b, o); return b;
+  }));
+}
+function fillSelect(sel, options, current, onPick) {
+  sel.replaceChildren(...options.map(([v, label]) => el("option", { value: String(v), text: label })));
+  sel.value = String(current); sel.onchange = () => onPick(sel.value);
+}
+function renderComposer() {
+  if (!fastAvailable && mode === "fast") mode = "best";
+  $("modes").hidden = !fastAvailable; $("modes").className = "opt " + mode;
+  fillSelect($("modes"), [["fast", "⚡ Fast"], ["best", "✦ Best"]], mode, (o) => { mode = o; store.set("mode", o); renderComposer(); });
+  fillSelect($("ratios"), Object.keys(SIZES.standard).map((r) => [r, { "1:1": "▢ 1:1", "4:3": "▭ 4:3", "3:4": "▯ 3:4", "16:9": "▭ 16:9", "9:16": "▯ 9:16" }[r]]), ratio,
+    (o) => { ratio = o; store.set("ratio", o); renderComposer(); });
+  $("sizes").hidden = mode === "fast";  // the 4-step adapter is trained at ~1 megapixel
+  fillSelect($("sizes"), [["standard", "HD"], ["large", "2K"]], size, (o) => { size = o; store.set("size", o); renderComposer(); });
+  $("counts").hidden = editingId != null;
+  fillSelect($("counts"), COUNTS.map((c) => [c, "×" + c]), count, (o) => { count = Number(o); store.set("count", count); renderComposer(); });
+  const [w, h] = dims(), est = estimateFor({ width: w, height: h, mode }), n = editingId != null ? 1 : count;
+  $("hint").textContent = `${w}×${h}` + (est ? ` · ~${fmtDur(est * n)}` : "");
+}
+function autosize() { const t = $("prompt"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, innerHeight * 0.45) + "px"; }
+function flashGo(text) {
+  const g = $("go"); $("goText").textContent = text; g.classList.add("ok");
+  clearTimeout(flashGo.h); flashGo.h = setTimeout(() => { g.classList.remove("ok"); renderEditing(); }, 900);
+}
+
+// ---------- editing a waiting job: the composer loads it, Generate becomes Save ----------
+let editingId = null, draftBeforeEdit = "";
+function renderEditing() {
+  const on = editingId != null;
+  $("composer").classList.toggle("editing", on);
+  $("editbar").hidden = $("cancelEdit").hidden = !on;
+  $("goText").textContent = on ? "Save" : "Generate";
+  document.querySelectorAll(".job").forEach((n) => n.classList.toggle("editing", on && Number(n.dataset.id) === editingId));
+  renderComposer();
+}
+function startEdit(job) {
+  if (editingId == null) draftBeforeEdit = $("prompt").value;
+  editingId = job.id; reuse(job.params); store.set("draft", draftBeforeEdit); renderEditing();
+}
+function stopEdit() {
+  if (editingId == null) return;
+  editingId = null; $("prompt").value = draftBeforeEdit; autosize(); renderEditing();
+}
+async function generate() {
+  const prompt = $("prompt").value;
+  if (!prompt.trim()) { toast("Describe what you want first.", { bad: true }); $("prompt").focus(); return; }
+  const [width, height] = dims();
+  if (editingId != null) {
+    const id = editingId, job = jobs.find((j) => j.id === id);
+    if (job) { job.params = { ...job.params, prompt, width, height, mode }; }
+    stopEdit(); renderQueue(true); flashGo("Saved ✓");
+    mutate(() => api(`/api/jobs/${id}/update`, { prompt, width, height, mode }));
+    return;
+  }
+  flashGo(count > 1 ? `Added ${count} ✓` : "Added ✓");
+  mutate(() => api("/api/jobs", { params: { prompt, width, height, mode }, repeat: count }));
+}
+
+// ---------- time estimate: median seconds per megapixel from recent results of the same mode ----------
+function dims() { return SIZES[mode === "fast" ? "standard" : size][ratio]; }
+// Median of past runs of the same type (Fast, Best, edit, video, extension). Photos of the exact same size are
+// used when there are at least 3; otherwise time per megapixel. Videos and edits don't scale with size here.
+const jobType = (p) => p.kind && p.kind !== "upload" ? p.kind : p.mode === "fast" ? "fast" : "best";
+const median = (a) => { a.sort((x, y) => x - y); return a[Math.floor(a.length / 2)]; };
+function estimateFor(p) {
+  const t = jobType(p), past = items.filter((i) => i.elapsed && i.params.width && jobType(i.params) === t);
+  if (!past.length) return null;
+  if (t === "video" || t === "extend" || t === "edit") return median(past.slice(0, 10).map((i) => i.elapsed));
+  const per = (i) => i.elapsed / (i.params.num_images || 1);
+  const same = past.filter((i) => i.params.width === p.width && i.params.height === p.height).slice(0, 10);
+  if (same.length >= 3) return median(same.map(per));
+  return median(past.slice(0, 10).map((i) => per(i) / (i.params.width * i.params.height / 1048576))) * (p.width * p.height / 1048576);
+}
+
+// ---------- server calls: optimistic UI, then reconcile; polls that overlap a change are ignored ----------
+let inFlight = 0, changeSeq = 0;
+async function mutate(call) {
+  inFlight++; changeSeq++;
+  try { await call(); } catch (e) { fail(e); }
+  finally { inFlight--; changeSeq++; refreshState(); }
+}
+
+// ---------- queue ----------
+function modeTag(m, onSwitch) {
+  const special = { video: "🎬 Video", extend: "⏩ Extended", edit: "✏️ Edit", upload: "⤒ Upload" }[m];
+  if (special) return el("span", { class: "mode " + m, text: special });
+  const fast = m === "fast", text = fast ? "⚡ Fast" : "✦ Best";
+  if (!onSwitch) return el("span", { class: "mode " + (fast ? "fast" : "best"), text });
+  return el("button", { class: "mode switch " + (fast ? "fast" : "best"), text, title: `Click to switch to ${fast ? "Best" : "Fast"}`,
+    onclick: (e) => { e.stopPropagation(); onSwitch(); } });
+}
+function switchMode(job) {
+  const p = job.params, to = p.mode === "fast" ? "best" : "fast", body = { mode: to };
+  if (to === "fast") {  // Fast runs at ~1 megapixel: map a 2K size to the HD size of the same shape
+    const r = Object.keys(SIZES.large).find((k) => SIZES.large[k][0] === p.width && SIZES.large[k][1] === p.height);
+    if (r) [body.width, body.height] = SIZES.standard[r];
+  }
+  job.params = { ...p, ...body }; renderQueue(true);
+  mutate(() => api(`/api/jobs/${job.id}/update`, body));
+}
+function moveJob(id, index) {
+  const queued = jobs.filter((j) => j.status === "queued"), job = queued.find((j) => j.id === id);
+  if (!job) return;
+  const rest = queued.filter((j) => j !== job); rest.splice(Math.max(0, Math.min(index, rest.length)), 0, job);
+  jobs = [...jobs.filter((j) => j.status === "running"), ...rest, ...jobs.filter((j) => !["running", "queued"].includes(j.status))];
+  renderQueue(true);
+  mutate(() => api(`/api/jobs/${id}/move`, { index }));
+}
+function dropJob(id, path) { jobs = jobs.filter((j) => j.id !== id); renderQueue(true); mutate(() => api(path, {})); }
+function stopJob(job) { job.stopping = true; renderQueue(true); mutate(() => api(`/api/jobs/${job.id}/cancel`, {})); }
+
+function jobCard(job, qIndex, qLen) {
+  const p = job.params, item = job.folder ? items.find((i) => i.id === job.folder) : null;
+  const pic = el("div", { class: "pic" });
+  let sub = `${p.width}×${p.height}`, subBad = false;
+  if (item && item.images[0]) pic.append(el("img", { src: thumbUrl(item, item.images[0]), alt: "", onclick: () => openLb(item.id) }));
+  else if (p.source || p.origin) pic.append(el("img", { class: "src", src: sourceThumb(p), alt: "", title: "Made from this" }));
+  if (job.status === "running") pic.append(el("div", { class: "ring" }), el("div", { class: "pct" }));
+  else if (job.status === "queued") {
+    pic.append(el("div", { class: "wait", text: String(qIndex + 1) }));
+    const est = estimateFor(p); if (est) sub += ` · ~${fmtDur(est)}`;
+  } else if (job.status === "failed") { sub = job.error || "Failed"; subBad = true; }
+
+  const ic = (t, title, fn, off, cls = "") => el("button", { class: "ic " + cls, title, "aria-label": title, text: t, onclick: (e) => { e.stopPropagation(); fn(); }, ...(off ? { disabled: "" } : {}) });
+  const acts = el("div", { class: "acts" });
+  if (job.status === "running") acts.append(ic("■", "Stop", () => stopJob(job), job.stopping, "danger"));
+  if (job.status === "queued") acts.append(
+    ic("⇤", "Run next", () => moveJob(job.id, 0), qIndex === 0),
+    ic("←", "Earlier", () => moveJob(job.id, qIndex - 1), qIndex === 0),
+    ic("→", "Later", () => moveJob(job.id, qIndex + 1), qIndex === qLen - 1),
+    isSourceJob(p) ? null : ic("✎", "Edit", () => startEdit(job)),
+    ic("✕", "Remove", () => dropJob(job.id, `/api/jobs/${job.id}/cancel`), false, "danger"));
+  if (job.status === "failed") acts.append(
+    ic("↻", "Try again", () => { dropJob(job.id, `/api/jobs/${job.id}/dismiss`); mutate(() => api(`/api/jobs/${job.id}/retry`, {})); }),
+    ic("✕", "Dismiss", () => dropJob(job.id, `/api/jobs/${job.id}/dismiss`), false, "danger"));
+  pic.append(modeTag(isSourceJob(p) ? p.kind : p.mode, job.status === "queued" && fastAvailable && !isSourceJob(p) ? () => switchMode(job) : null));
+
+  const tagText = { running: "Generating", failed: "Failed" }[job.status];
+  const card = el("div", { class: "job " + job.status + (job.id === editingId ? " editing" : ""), "data-id": job.id }, pic,
+    tagText ? el("span", { class: "tag " + job.status, text: tagText }) : null, acts,
+    el("div", { class: "body" }, el("div", { class: "p", text: p.prompt, title: p.prompt }), el("div", { class: "sub" + (subBad ? " bad" : ""), text: sub, title: sub })));
+  if (job.status === "queued") dragSource(card, job.id);
+  return card;
+}
+// Live parts of the running card change every poll; update them in place so the ring animates smoothly.
+function updateRunning(card, job) {
+  const prog = job.progress || {}, pct = prog.fraction == null ? null : Math.round(prog.fraction * 100);
+  const ring = card.querySelector(".ring"); if (ring) ring.style.setProperty("--p", pct ?? 0);
+  const t = card.querySelector(".pct"); if (t) t.textContent = pct == null ? "…" : pct + "%";
+  const desc = job.stopping ? "Stopping…" : (prog.desc || "Starting").replace(/ · step.*/, "");
+  const spent = job.started ? Date.now() / 1000 - job.started : 0, est = estimateFor(job.params);
+  card.querySelector(".sub").textContent = desc + " · " + fmtDur(spent) + (est && est > spent ? ` · ~${fmtDur(est - spent)} left` : "");
+}
+
+// ---------- drag to reorder (waiting jobs only) ----------
+let dragId = null;
+function dropSide(card, e) { const r = card.getBoundingClientRect(); return e.clientX < r.left + r.width / 2 ? "before" : "after"; }
+function clearDrop() { document.querySelectorAll(".drop-before,.drop-after").forEach((n) => n.classList.remove("drop-before", "drop-after")); }
+function dragSource(card, id) {
+  card.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.pointerType === "touch" || e.target.closest("button")) return;
+    const x0 = e.clientX, y0 = e.clientY; let target = null, side = null;
+    const onMove = (ev) => {
+      if (dragId == null) {
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return;
+        dragId = id; card.classList.add("dragging"); document.body.style.cursor = "grabbing";
+      }
+      clearDrop(); target = null;
+      const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(".job.queued");
+      if (over && over !== card) { target = over; side = dropSide(over, ev); over.classList.add("drop-" + side); }
+    };
+    const onUp = () => {
+      removeEventListener("pointermove", onMove); removeEventListener("pointerup", onUp);
+      if (dragId == null) return;
+      const moved = dragId; dragId = null; card.classList.remove("dragging"); document.body.style.cursor = ""; clearDrop();
+      if (!target) return renderQueue(true);
+      const order = jobs.filter((j) => j.status === "queued" && j.id !== moved).map((j) => j.id);
+      moveJob(moved, order.indexOf(Number(target.dataset.id)) + (side === "after" ? 1 : 0));
+    };
+    addEventListener("pointermove", onMove); addEventListener("pointerup", onUp);
+  });
+}
+
+const cardCache = new Map();  // job id -> {sig, node}; unchanged cards keep their DOM node so clicks and drags aren't interrupted
+function cardFor(job, qIndex, qLen) {
+  const item = job.folder && items.find((i) => i.id === job.folder);
+  const sig = JSON.stringify([job.params, fastAvailable, job.id === editingId, job.status, job.error, qIndex, qLen, !!item, !!job.stopping,
+    job.status === "queued" && estimateFor(job.params)]);
+  const hit = cardCache.get(job.id);
+  const node = hit && hit.sig === sig ? hit.node : jobCard(job, qIndex, qLen);
+  cardCache.set(job.id, { sig, node });
+  if (job.status === "running") updateRunning(node, job);
+  return node;
+}
+// Animate position changes (FLIP): cards slide to their new place instead of jumping.
+function flip(container, change) {
+  const before = new Map([...container.children].map((n) => [n.dataset.id, n.getBoundingClientRect()]));
+  change();
+  for (const n of container.children) {
+    const b = before.get(n.dataset.id);
+    if (!b) { n.animate([{ opacity: 0, transform: "scale(.92)" }, { opacity: 1, transform: "none" }], { duration: 260, easing: "cubic-bezier(.2,.8,.2,1)" }); continue; }
+    const a = n.getBoundingClientRect(), dx = b.left - a.left, dy = b.top - a.top;
+    if (dx || dy) n.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: "none" }], { duration: 300, easing: "cubic-bezier(.2,.8,.2,1)" });
+  }
+}
+let queueHover = false;
+function renderQueue(force) {
+  if (dragId != null) return;  // don't rebuild under an active drag
+  const running = jobs.filter((j) => j.status === "running"), queued = jobs.filter((j) => j.status === "queued");
+  const failed = jobs.filter((j) => j.status === "failed").slice(0, 10);  // finished images live in the gallery
+  if (editingId != null && !queued.some((j) => j.id === editingId)) { stopEdit(); toast("That image already started, so it can't be edited."); }
+  const cards = [...running.map((j) => cardFor(j, 0, 0)), ...queued.map((j, i) => cardFor(j, i, queued.length)), ...failed.map((j) => cardFor(j, 0, 0))];
+  const live = new Set(jobs.map((j) => j.id)); for (const id of cardCache.keys()) if (!live.has(id)) cardCache.delete(id);
+  const q = $("queue"), want = cards.length ? cards : [renderQueue.empty ||= el("div", { class: "empty", "data-id": "empty", text: "Nothing in the queue. Describe an image above and press Enter." })];
+  const sameOrder = want.length === q.children.length && want.every((n, i) => q.children[i].dataset.id === n.dataset.id);
+  if (queueHover && !force && !sameOrder) {
+    // Mouse is over the queue: keep cards where they are (no shifting under the cursor); refresh content in place.
+    const byId = new Map(want.map((n) => [n.dataset.id, n]));
+    for (const old of [...q.children]) { const n = byId.get(old.dataset.id); if (n && n !== old) old.replaceWith(n); else if (!n) old.classList.add("gone"); }
+    renderQueue.pending = true;
+  } else {
+    flip(q, () => { want.forEach((n, i) => { if (q.children[i] !== n) q.insertBefore(n, q.children[i] || null); }); while (q.children.length > want.length) q.lastChild.remove(); });
+    renderQueue.pending = false;
+  }
+  renderStatus(running, queued);
+}
+function renderStatus(running, queued) {
+  const total = queued.reduce((s, j) => s + (estimateFor(j.params) || 0), 0);
+  $("queueSummary").textContent = running.length || queued.length
+    ? `${running.length ? "1 generating" : ""}${running.length && queued.length ? " · " : ""}${queued.length ? queued.length + " waiting" : ""}${total ? " · ~" + fmtDur(total) + " left" : ""}` : "";
+  const r = running[0], pct = r && r.progress && r.progress.fraction != null ? Math.round(r.progress.fraction * 100) : null;
+  $("hbar").style.width = r && pct != null ? pct + "%" : "0"; $("hbar").style.opacity = r ? 1 : 0;
+  document.title = r ? `${pct != null ? pct + "% · " : ""}MOSS Studio` : "MOSS Studio";
+}
+
+// ---------- gallery ----------
+const FILTERS = { all: "All", loved: "♥ Loved", fast: "⚡ Fast", best: "✦ Best", edit: "✏️ Edits", video: "🎬 Videos", upload: "⤒ Uploads" };
+// Videos belong to the photo they were made from (following extensions back to it); they live inside its tile.
+let groups = new Map(), rootOf = new Map();
+function buildGroups() {
+  const byId = new Map(items.map((i) => [i.id, i]));
+  groups = new Map(); rootOf = new Map();
+  const root = (it, seen = 0) => {
+    if (!it.video) return it.id;
+    const src = byId.get((it.params.source || "").split("/")[0]);
+    return src && seen < 50 ? root(src, seen + 1) : null;
+  };
+  for (const it of items) if (it.video) {
+    const r = root(it); if (!r || r === it.id) continue;
+    rootOf.set(it.id, r); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(it);
+  }
+  for (const vids of groups.values()) vids.sort((x, y) => y.created - x.created);
+}
+const videosOf = (id) => groups.get(id) || [];
+function matches(i, f) {
+  if (f === "all") return true;
+  if (f === "loved") return i.loved || videosOf(i.id).some((v) => v.loved);
+  if (f === "video") return !!i.video || videosOf(i.id).length > 0;
+  return kindOf(i) === f;
+}
+function visibleItems() {
+  const list = items.filter((i) => !rootOf.has(i.id) && matches(i, filter));
+  if (sortBy === "old") list.reverse();
+  else if (sortBy === "loved") list.sort((a, b) => (matches(b, "loved") - matches(a, "loved")) || (b.created - a.created));
+  return list;
+}
+function renderFilters() {
+  const tiles = items.filter((i) => !rootOf.has(i.id));
+  const keys = Object.keys(FILTERS).filter((k) => k === "all" || k === filter || tiles.some((i) => matches(i, k)));
+  renderGroup($("filters"), keys, filter, (b, o) => b.append(`${FILTERS[o]} ${tiles.filter((i) => matches(i, o)).length}`),
+    (o) => { filter = o; store.set("filter", o); renderGallery(); });
+  $("sort").value = sortBy;
+}
+const tileCache = new Map();
+function tileFor(item) {
+  const vids = videosOf(item.id), sig = vids.map((v) => v.id).join();
+  const hit = tileCache.get(item.id);
+  if (hit && hit.dataset.vids !== sig) tileCache.delete(item.id);
+  else if (hit) { const l = hit.querySelector(".love"); l.classList.toggle("on", !!item.loved); l.textContent = item.loved ? "♥" : "♡"; return hit; }
+  const p = item.params, video = !!item.video, clip = video ? item : vids[0];
+  const img = el("img", { src: thumbUrl(item, item.images[0]), alt: p.prompt || "", loading: "lazy", decoding: "async", width: p.width || 1024, height: p.height || 1024 });
+  const t = el("button", { class: "tile", title: p.prompt || "", onclick: () => openLb(item.id) }, img, clip ? el("div", { class: "play", "data-n": vids.length > 1 ? String(vids.length) : "" }) : null,
+    el("div", { class: "cap", text: p.prompt || p.file_name || "" }), modeTag(tagOf(item)));
+  if (clip) {  // muted preview of the (newest) video while hovering
+    t.addEventListener("pointerenter", () => { if (!t.querySelector("video")) t.insertBefore(el("video", { src: fileUrl(clip, clip.video), muted: "", autoplay: "", loop: "", playsinline: "" }), t.children[1]); });
+    t.addEventListener("pointerleave", () => t.querySelector("video")?.remove());
+  }
+  const love = el("button", { class: "love" + (item.loved ? " on" : ""), title: "Love", "aria-label": "Love", text: item.loved ? "♥" : "♡", onclick: () => toggleLove(item.id) });
+  const done = () => t.classList.add("loaded"); img.addEventListener("load", done); img.addEventListener("error", done);
+  const acts = el("div", { class: "acts" },
+    video ? el("button", { class: "ic", title: "Extend this video", "aria-label": "Extend video", text: "⏩", onclick: () => sourceJob(item, "extend") }) : null,
+    !video && isGenerated(p) ? el("button", { class: "ic", title: "More like this (4 new versions)", "aria-label": "More like this", text: "✨", onclick: () => moreLikeThis(item) }) : null,
+    video ? null : el("button", { class: "ic", title: "Edit this photo", "aria-label": "Edit photo", text: "✏️", onclick: () => { openLb(item.id); $("lbActText").focus(); } }),
+    video ? null : el("button", { class: "ic", title: "Make a video from this photo", "aria-label": "Make video", text: "🎬", onclick: () => sourceJob(item, "video") }),
+    isGenerated(p) && !video ? el("button", { class: "ic", title: "Use this prompt", "aria-label": "Use this prompt", text: "✎", onclick: () => reuse(p) }) : null,
+    el("button", { class: "ic danger", title: "Delete", "aria-label": "Delete", text: "🗑", onclick: () => removeItem(item.id) }));
+  const cell = el("div", { class: "cell", "data-id": item.id, "data-vids": sig }, t, acts, love);
+  if (knownItems && !knownItems.has(item.id)) { cell.classList.add("new"); setTimeout(() => cell.classList.remove("new"), 2500); }
+  tileCache.set(item.id, cell); return cell;
+}
+function renderGallery() {
+  buildGroups();
+  renderFilters();
+  const list = visibleItems();
+  const nVid = items.filter((i) => i.video).length, nImg = items.length - nVid;
+  $("galleryCount").textContent = [nImg ? `${nImg} photo${nImg > 1 ? "s" : ""}` : "", nVid ? `${nVid} video${nVid > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
+  const g = $("grid");
+  if (!list.length) { g.replaceChildren(el("div", { class: "empty", text: items.length ? "No images match this filter." : "Finished images will appear here." })); return; }
+  const want = list.map(tileFor);
+  want.forEach((n, i) => { if (g.children[i] !== n) g.insertBefore(n, g.children[i] || null); });
+  while (g.children.length > want.length) g.lastChild.remove();
+  for (const id of tileCache.keys()) if (!items.some((i) => i.id === id)) tileCache.delete(id);
+  knownItems = new Set(items.map((i) => i.id));
+}
+function toggleLove(id) {
+  const item = items.find((i) => i.id === id); if (!item) return;
+  item.loved = !item.loved; renderGallery(); if (lbId) renderLb();
+  api(`/api/gallery/${id}/love`, { loved: item.loved }).catch((e) => { item.loved = !item.loved; renderGallery(); fail(e); });
+}
+function sourceJob(item, kind, prompt = "") {
+  if (kind === "edit" && !prompt.trim()) { toast("Describe the change first, e.g. \"make it night\".", { bad: true }); $("lbActText").focus(); return false; }
+  const [width, height] = [item.params.width || 1024, item.params.height || 1024];
+  const source = `${item.id}/${kind === "extend" ? item.video : item.images[0]}`;
+  toast({ video: "🎬 Video", extend: "⏩ Video extension", edit: "✏️ Edit" }[kind] + " added to the queue.");
+  mutate(() => api("/api/jobs", { params: { kind, source, prompt, width, height }, repeat: 1 }));
+  return true;
+}
+function moreLikeThis(item) {
+  const p = item.params;
+  toast("✨ 4 more versions added to the queue.");
+  mutate(() => api("/api/jobs", { params: { prompt: p.prompt, width: p.width, height: p.height, mode: p.mode === "fast" && fastAvailable ? "fast" : "best", origin: `${item.id}/${item.images[0]}` }, repeat: 4 }));
+}
+async function uploadFiles(files) {
+  const list = [...files].filter((f) => f.type.startsWith("image/"));
+  if (!list.length) return toast("Those aren't images.", { bad: true });
+  toast(`Uploading ${list.length} photo${list.length > 1 ? "s" : ""}…`);
+  let last = null;
+  for (const f of list) {
+    try {
+      const r = await fetch("/api/upload", { method: "POST", headers: { "X-Studio": "1", "Content-Type": "application/octet-stream", "X-Filename": encodeURIComponent(f.name) }, body: f });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.detail || "Upload failed.");
+      last = d.id;
+    } catch (e) { fail(e); }
+  }
+  await refreshGallery();
+  if (last) { toast(list.length > 1 ? `${list.length} photos added.` : "Photo added. Describe a change or make a video."); if (list.length === 1) { openLb(last); $("lbActText").focus(); } }
+}
+function removeItem(id) {
+  const i = items.findIndex((x) => x.id === id), item = items[i];
+  if (!item) return;
+  const inGroup = lbId && lbId !== id && rootOf.get(id) === lbId;  // a video inside the open photo: stay on that photo
+  if (lbId === id) { const vis = visibleItems(), k = vis.indexOf(item), next = vis[k + 1] || vis[k - 1]; next ? showLb(next.id) : closeLb(); }
+  items = items.filter((x) => x.id !== id); renderGallery();
+  if (inGroup) { lbView = null; lbIndex = visibleItems().findIndex((x) => x.id === lbId); renderLb(); }
+  api(`/api/gallery/${id}/delete`, {}).then(() => toast(item.video ? "Video deleted." : "Image deleted.", { action: { label: "Undo", run: () =>
+    api(`/api/gallery/${id}/restore`, {}).then(refreshGallery, fail) } }),
+    (e) => { fail(e); refreshGallery(); });
+}
+function reuse(p) {
+  $("prompt").value = p.prompt || "";
+  if (p.mode && fastAvailable) { mode = p.mode; store.set("mode", mode); }
+  for (const [s, table] of Object.entries(SIZES)) for (const [r, [w, h]] of Object.entries(table))
+    if (w === p.width && h === p.height) { size = s; ratio = r; store.set("size", s); store.set("ratio", r); }
+  if (editingId == null) store.set("draft", $("prompt").value);
+  autosize(); renderComposer(); closeLb();
+  window.scrollTo({ top: 0, behavior: "smooth" }); $("prompt").focus({ preventScroll: true });
+}
+
+// ---------- lightbox: show the cached preview instantly, then swap in the full image ----------
+let lbView = null;  // id of the photo or video shown; lbId is its gallery tile
+function openLb(id) { showLb(id); $("lb").classList.add("open"); }
+function closeLb() { $("lb").classList.remove("open"); lbIndex = -1; lbId = null; lbView = null; $("lbVid").pause(); }
+function showLb(id) { lbId = id; lbIndex = visibleItems().findIndex((i) => i.id === id); lbView = (videosOf(id)[0] || {}).id || id; renderLb(); }
+const preloaded = new Set();
+function preload(item) { if (!item) return; const u = fileUrl(item, item.images[0]); if (!preloaded.has(u)) { preloaded.add(u); new Image().src = u; } }
+const lbItem = () => items.find((i) => i.id === lbView) || visibleItems()[lbIndex];
+function renderLb() {
+  const vis = visibleItems(), tile = vis[lbIndex]; if (!tile) return closeLb();
+  const group = [tile, ...videosOf(tile.id)];
+  if (!group.some((g) => g.id === lbView)) lbView = (group[1] || tile).id;
+  const item = group.find((g) => g.id === lbView);
+  $("lbStrip").hidden = group.length < 2;
+  $("lbStrip").replaceChildren(...(group.length < 2 ? [] : group.map((g, k) => el("button", { class: (g.video ? "v " : "") + (g.id === lbView ? "on" : ""),
+    title: g.video ? `Video ${group.length - k}` : "Photo", onclick: () => { lbView = g.id; renderLb(); } }, el("img", { src: thumbUrl(g, g.images[0]), alt: "" })))));
+  const name = item.images[0], p = item.params, img = $("lbImg"), vid = $("lbVid"), video = !!item.video;
+  const full = video ? fileUrl(item, item.video) : fileUrl(item, name);
+  img.hidden = video; vid.hidden = !video;
+  if (video) { if (vid.dataset.src !== full) { vid.dataset.src = full; vid.poster = thumbUrl(item, name); vid.src = full; vid.play().catch(() => {}); } }
+  else { vid.pause(); vid.removeAttribute("src"); vid.dataset.src = ""; }
+  if (!video && img.dataset.full !== full) {
+    img.dataset.full = full; img.src = thumbUrl(item, name); img.classList.add("soft");
+    const hi = new Image(); hi.onload = () => { if (img.dataset.full === full) { img.src = full; img.classList.remove("soft"); } }; hi.src = full;
+  }
+  img.alt = p.prompt || "";
+  $("lbPrompt").textContent = p.prompt || p.file_name || "";
+  $("lbFinal").hidden = video || !isFast(p);
+  const gen = isGenerated(p) && !video;
+  $("lbEdit").hidden = $("lbVideo").hidden = video; $("lbExtend").hidden = !video; $("lbMore").hidden = !gen;
+  $("lbReuse").hidden = $("lbCopy").hidden = !p.prompt;
+  $("lbActText").placeholder = video ? "What happens next? (optional)" : "Describe a change (\"make it night\") or a motion (\"she smiles\")";
+  $("lbLove").textContent = item.loved ? "♥ Loved" : "♡ Love"; $("lbLove").classList.toggle("loved", !!item.loved);
+  const kv = [["Type", { video: "🎬 Video", extend: "⏩ Extended video", edit: "✏️ Edited photo", upload: "⤒ Uploaded photo", fast: "⚡ Fast photo", best: "✦ Best photo" }[tagOf(item)] || "Photo"], ["Size", `${p.width} × ${p.height}`], ["Took", fmtDur(item.elapsed)], ["Created", new Date(item.created * 1000).toLocaleString()], ["Seed", p.seed]];
+  $("lbKv").replaceChildren(...kv.filter(([, v]) => v != null && v !== "").flatMap(([k, v]) => [el("dt", { text: k }), el("dd", { text: String(v ?? "") })]));
+  $("lbDownload").href = full; $("lbDownload").setAttribute("download", fileName(item, video ? item.video : name));
+  $("lbPrev").disabled = lbIndex <= 0; $("lbNext").disabled = lbIndex >= vis.length - 1;
+  preload(vis[lbIndex + 1]); preload(vis[lbIndex - 1]);
+}
+function lbStep(d) { const vis = visibleItems(), n = vis[lbIndex + d]; if (n) showLb(n.id); }
+
+// ---------- polling: fast while something is generating, relaxed when idle ----------
+async function refreshGallery() {
+  try {
+    items = (await api("/api/gallery")).items; renderGallery(); renderQueue(); renderComposer();
+    if (lbId) { lbIndex = visibleItems().findIndex((i) => i.id === lbId); renderLb(); }
+  } catch {}
+}
+async function refreshState() {
+  if (inFlight) return;
+  const seq = changeSeq;
+  try {
+    const st = await api("/api/state");
+    if (inFlight || seq !== changeSeq) return;  // a change happened meanwhile; this answer may be stale
+    const stopping = new Set(jobs.filter((j) => j.stopping).map((j) => j.id));
+    jobs = st.jobs; jobs.forEach((j) => { if (stopping.has(j.id) && j.status === "running") j.stopping = true; });
+    if (st.fast !== fastAvailable) { fastAvailable = st.fast; renderComposer(); }
+    const done = new Set(jobs.filter((j) => j.status === "done").map((j) => j.id));
+    const fresh = knownDone && [...done].some((id) => !knownDone.has(id));
+    knownDone = done; renderQueue();
+    if (fresh) refreshGallery();
+  } catch {}
+}
+(function loop() {
+  const busy = jobs.some((j) => j.status === "running" || j.status === "queued");
+  setTimeout(() => refreshState().finally(loop), document.hidden ? 5000 : busy ? 1000 : 3000);
+})();
+setInterval(refreshGallery, 30000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { refreshState(); refreshGallery(); } });
+
+// ---------- wiring ----------
+$("prompt").value = store.get("draft", "");
+$("prompt").addEventListener("input", () => { if (editingId == null) store.set("draft", $("prompt").value); autosize(); });
+$("prompt").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); generate(); }
+  else if (e.key === "Escape" && editingId != null) { e.preventDefault(); stopEdit(); }
+});
+$("go").onclick = generate;
+$("cancelEdit").onclick = stopEdit;
+$("queue").addEventListener("pointerenter", () => { queueHover = true; });
+$("queue").addEventListener("pointerleave", () => { queueHover = false; if (renderQueue.pending) renderQueue(true); });
+$("logout").onclick = async () => { try { await api("/api/logout", {}); } catch {} location.replace("/login"); };
+$("newBtn").onclick = () => { window.scrollTo({ top: 0, behavior: "smooth" }); $("prompt").focus({ preventScroll: true }); };
+new IntersectionObserver(([e]) => { $("newBtn").hidden = e.isIntersecting; }).observe($("composer"));
+$("lbClose").onclick = closeLb; $("lbPrev").onclick = () => lbStep(-1); $("lbNext").onclick = () => lbStep(1);
+$("lbReuse").onclick = () => reuse(lbItem().params);
+$("lbFinal").onclick = () => {
+  const p = lbItem().params;
+  toast("✦ Best version added to the queue.");
+  mutate(() => api("/api/jobs", { params: { prompt: p.prompt, width: p.width, height: p.height, mode: "best", origin: `${lbItem().id}/${lbItem().images[0]}` }, repeat: 1 }));
+};
+$("lbCopy").onclick = async () => { try { await navigator.clipboard.writeText(lbItem().params.prompt || ""); toast("Prompt copied."); } catch { toast("Copy failed.", { bad: true }); } };
+$("lbDelete").onclick = () => removeItem(lbView);
+$("lbLove").onclick = () => toggleLove(lbView);
+function lbSource(kind) { const it = lbItem(); if (it && sourceJob(it, kind, $("lbActText").value.trim())) $("lbActText").value = ""; }
+$("lbEdit").onclick = () => lbSource("edit");
+$("lbVideo").onclick = () => lbSource("video");
+$("lbExtend").onclick = () => lbSource("extend");
+$("lbMore").onclick = () => { const it = lbItem(); if (it) moreLikeThis(it); };
+$("lbActText").addEventListener("keydown", (e) => {
+  e.stopPropagation();
+  if (e.key === "Enter") { e.preventDefault(); const it = lbItem(); if (it) lbSource(it.video ? "extend" : "edit"); }
+  else if (e.key === "Escape") $("lbActText").blur();
+});
+$("uploadBtn").onclick = () => $("uploadInput").click();
+$("uploadInput").onchange = () => { uploadFiles($("uploadInput").files); $("uploadInput").value = ""; };
+let dragDepth = 0;
+const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
+addEventListener("dragenter", (e) => { if (hasFiles(e)) { dragDepth++; $("drop").classList.add("on"); } });
+addEventListener("dragleave", (e) => { if (hasFiles(e) && --dragDepth <= 0) { dragDepth = 0; $("drop").classList.remove("on"); } });
+addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
+addEventListener("drop", (e) => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth = 0; $("drop").classList.remove("on"); uploadFiles(e.dataTransfer.files); });
+$("sort").onchange = () => { sortBy = $("sort").value; store.set("sort", sortBy); renderGallery(); };
+$("lbStage").addEventListener("click", (e) => { if (e.target === $("lbStage")) closeLb(); });
+document.addEventListener("keydown", (e) => {
+  const typing = /^(TEXTAREA|INPUT)$/.test(document.activeElement?.tagName);
+  if (lbIndex >= 0) {
+    if (e.key === "Delete" || (e.key === "Backspace" && e.metaKey)) { e.preventDefault(); removeItem(lbView); }
+    else if (e.key === "Escape") closeLb(); else if (e.key === "ArrowLeft") lbStep(-1); else if (e.key === "ArrowRight") lbStep(1);
+    else if (e.key === "l" || e.key === "L") toggleLove(lbView);
+    else if (/^[vV]$/.test(e.key) && !$("lbVideo").hidden) $("lbVideo").click();
+    else if (/^[xX]$/.test(e.key) && !$("lbExtend").hidden) $("lbExtend").click();
+    else if (/^[mM]$/.test(e.key) && !$("lbMore").hidden) $("lbMore").click();
+    else if (/^[eE]$/.test(e.key) && !$("lbEdit").hidden) { e.preventDefault(); $("lbActText").focus(); }
+    return;
+  }
+  if (e.key === "/" && !typing) { e.preventDefault(); $("newBtn").click(); }
+});
+renderEditing(); autosize();
+refreshGallery(); refreshState();
+</script>
+</body>
+</html>
