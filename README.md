@@ -17,6 +17,14 @@ Type a prompt, press Enter, and get photorealistic images in a queue you can reo
 - **A gallery that stays organised**: each photo's videos live inside its tile and play on hover. ♥ Love items, filter by Loved / Fast / Best / Edits / Videos / Uploads, sort, delete with undo, and use ✨ More like this.
 - **Private by default**: password-protected, with signed session cookies and CSRF protection. Your images stay on your own GPU server.
 
+## Install with an AI assistant
+
+Open this folder in Claude Code, Cursor, Codex or a similar coding assistant and say:
+
+> Set up MOSS Studio for me by following AGENTS.md.
+
+[AGENTS.md](AGENTS.md) walks the assistant through the install and lists every deploy problem we hit, with its fix, so it doesn't have to rediscover them.
+
 ## Quick start
 
 You need a [RunPod](https://www.runpod.io) account with a few dollars of credit, plus an API key. The script runs on macOS or Linux and only needs `bash`, `curl` and `python3`.
@@ -41,6 +49,16 @@ echo "YOUR_RUNPOD_API_KEY" > ~/.runpod-key && chmod 600 ~/.runpod-key
 | `./moss-pod.sh down` | Delete the server and its storage; all billing ends |
 
 Your pod ID and password are kept in `.moss-pod` next to the script. That file is git-ignored; keep it private.
+
+## Troubleshooting
+
+- **Logs:** RunPod console → your pod → **Logs** → **Container** (not System). The same output is saved in `/workspace/boot.log` on the pod.
+- **HTTP 502 on the link:** normal during the first 10–20 minutes, and for a few minutes after `update`.
+- **Pod never starts:** the GPU is out of stock. Try `GPUS="NVIDIA RTX A6000,NVIDIA A40" ./moss-pod.sh up`, or add `CLOUD=SECURE`.
+- **Video or edit fails with "no space":** raise the volume size in the RunPod console (pod → Edit Pod). Your images stay. Raise `volumeInGb` in `moss-pod.sh` too, so new pods start bigger.
+- **Can I run it on my Mac?** No. The model needs about 17 GB of memory at once plus a 27 GB download. MOSS-Image's Mac support is experimental and was only tested on 32 GB machines.
+
+More fixes are listed in [AGENTS.md](AGENTS.md#known-problems-and-their-fixes).
 
 ## Cost and speed
 
